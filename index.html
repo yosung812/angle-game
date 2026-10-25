@@ -370,11 +370,11 @@
     <p style="color:var(--text-dim); margin-bottom:14px; text-align:center;">기준선(→)으로부터 목표 각도를 맞춰보세요!</p>
 
     <div class="diff-group">
-      <button class="diff-btn selected" onclick="selectDifficulty('easy', this)">🟢 Easy</button>
-      <button class="diff-btn" onclick="selectDifficulty('normal', this)">🟡 Normal</button>
+      <button class="diff-btn" onclick="selectDifficulty('easy', this)">🟢 Easy</button>
+      <button class="diff-btn selected" onclick="selectDifficulty('normal', this)">🟡 Normal</button>
       <button class="diff-btn" onclick="selectDifficulty('hard', this)">🔴 Difficult</button>
     </div>
-    <div class="diff-desc" id="diff-desc">보조선: 0°/90°/180°/270° 실선 + 45°/135°/225°/315° 점선</div>
+    <div class="diff-desc" id="diff-desc">보조선: 0°/90°/180°/270° 실선만 표시</div>
 
     <button class="mode-btn" onclick="startGame('practice')">
       <span class="icon">🔄</span>연습 모드
@@ -465,7 +465,7 @@ const LINE_LEN = () => cSize * 0.38;
 const ARC_R = () => cSize * 0.13;
 
 let mode = ''; // 'practice' | 'challenge'
-let difficulty = 'easy'; // 'easy' | 'normal' | 'hard'
+let difficulty = 'normal'; // 'easy' | 'normal' | 'hard'
 let totalRounds = 5;
 let targetAngle = 0;
 let playerAngle = 0; // degrees, CCW from +X
