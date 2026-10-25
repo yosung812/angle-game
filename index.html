@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎯 각도 맞추기 게임</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1e2e;
+    --bg-light: #252a3a;
+    --accent: #00e5ff;
+    --accent-dim: rgba(0,229,255,0.25);
+    --gold: #ffd740;
+    --gold-dim: rgba(255,215,64,0.25);
+    --text: #e8eaf6;
+    --text-dim: #7986cb;
+    --success: #69f0ae;
+    --error: #ff5252;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: clamp(1.4rem, 4vw, 1.8rem);
+    margin: 16px 0 8px;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* ── Screens ── */
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0 16px 32px;
+    animation: fadeIn 0.35s ease;
+  }
+  .screen.active { display: flex; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Mode select ── */
+  .menu-content { max-width: 540px; width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+  .mode-btn {
+    width: 100%;
+    max-width: 340px;
+    padding: 22px 20px;
+    margin: 10px 0;
+    border: 2px solid var(--text-dim);
+    border-radius: var(--radius);
+    background: var(--bg-light);
+    color: var(--text);
+    font-size: 1.15rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: left;
+  }
+  .mode-btn:hover, .mode-btn:focus-visible {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .mode-btn .icon { font-size: 1.5rem; margin-right: 10px; vertical-align: middle; }
+  .mode-btn .desc { display: block; font-size: 0.82rem; color: var(--text-dim); margin-top: 6px; font-weight: 400; }
+
+  /* ── Difficulty select ── */
+  .diff-group {
+    display: flex;
+    gap: 10px;
+    margin: 14px 0 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .diff-btn {
+    padding: 10px 22px;
+    border: 2px solid var(--text-dim);
+    border-radius: var(--radius);
+    background: var(--bg-light);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .diff-btn:hover { border-color: var(--accent); background: rgba(0,229,255,0.08); }
+  .diff-btn.selected { border-color: var(--accent); background: rgba(0,229,255,0.15); color: var(--accent); }
+  .diff-desc { font-size: 0.78rem; color: var(--text-dim); margin-top: 4px; text-align: center; min-height: 2.5em; }
+
+  /* ── Round count input ── */
+  .round-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 4px;
+    font-size: 0.92rem;
+    color: var(--text-dim);
+  }
+  .round-input-row input {
+    width: 60px;
+    padding: 6px 10px;
+    border: 2px solid var(--text-dim);
+    border-radius: 8px;
+    background: var(--bg-light);
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .round-input-row input:focus { border-color: var(--accent); }
+
+  /* ── Game area ── */
+  .game-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 960px;
+    flex-wrap: wrap;
+  }
+  .game-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+  .game-right {
+    flex: 1;
+    min-width: 220px;
+    max-width: 340px;
+  }
+
+  #target-display {
+    font-size: clamp(1.3rem, 5vw, 1.7rem);
+    font-weight: 700;
+    margin: 10px 0 6px;
+    color: var(--gold);
+    min-height: 2.2em;
+    text-align: center;
+    transition: opacity 0.3s;
+  }
+  #round-display {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    min-height: 1.4em;
+  }
+
+  canvas {
+    border-radius: var(--radius);
+    background: #151826;
+    box-shadow: var(--shadow);
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #111;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary { background: var(--accent); }
+  .btn-gold { background: var(--gold); }
+  .btn-outline {
+    background: transparent;
+    border: 2px solid var(--text-dim);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  /* ── Live result table (right side) ── */
+  .live-table-wrap {
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .live-table-wrap h3 {
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .live-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .live-table th {
+    color: var(--text-dim);
+    font-weight: 500;
+    padding: 5px 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .live-table td {
+    padding: 5px 6px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .live-table .err-cell { font-weight: 600; }
+  .live-table .avg-row td {
+    border-top: 2px solid rgba(0,229,255,0.3);
+    font-weight: 700;
+    color: var(--accent);
+    padding-top: 8px;
+  }
+  .live-table .empty-row td {
+    color: rgba(255,255,255,0.15);
+    font-style: italic;
+  }
+
+  .error-good { color: var(--success); }
+  .error-ok { color: var(--gold); }
+  .error-bad { color: var(--error); }
+
+  /* ── Summary ── */
+  #summary-screen .summary-card {
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    padding: 20px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: var(--shadow);
+    margin-top: 12px;
+  }
+  .summary-card h2 { text-align: center; margin-bottom: 14px; font-size: 1.2rem; }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    margin-bottom: 16px;
+  }
+  .summary-table th {
+    color: var(--text-dim);
+    font-weight: 500;
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+  }
+  .summary-table td {
+    padding: 6px 4px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .summary-table .err-cell { font-weight: 600; }
+
+  .avg-box {
+    text-align: center;
+    font-size: 1.1rem;
+    margin: 10px 0;
+    padding: 12px;
+    background: rgba(0,229,255,0.07);
+    border-radius: 8px;
+  }
+  .avg-box .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+
+  .stars {
+    text-align: center;
+    font-size: 2rem;
+    margin: 10px 0 4px;
+    letter-spacing: 4px;
+  }
+  .grade-label {
+    text-align: center;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  /* ── Practice average ── */
+  #practice-stats {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+    min-height: 1.2em;
+  }
+
+  /* ── Responsive: stack vertically on narrow screens ── */
+  @media (max-width: 700px) {
+    .game-layout {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .game-right {
+      max-width: 100%;
+      width: 100%;
+      min-width: unset;
+    }
+    .live-table-wrap {
+      padding: 10px;
+    }
+    .live-table-wrap h3 {
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+    .live-table { font-size: 0.78rem; }
+    .live-table th { padding: 4px 3px; }
+    .live-table td { padding: 4px 3px; }
+    .btn-row { margin-top: 10px; gap: 8px; }
+    .btn { padding: 14px 20px; font-size: 0.95rem; min-height: 48px; }
+    #target-display { font-size: 1.2rem; margin: 6px 0 4px; min-height: 1.8em; }
+    #round-display { font-size: 0.82rem; margin-bottom: 2px; }
+    h1 { font-size: 1.3rem; margin: 10px 0 6px; }
+    .screen { padding: 0 10px 20px; }
+    .mode-btn { padding: 16px 14px; font-size: 1rem; }
+    .mode-btn .desc { font-size: 0.76rem; }
+    .diff-group { gap: 6px; margin: 10px 0 4px; }
+    .diff-btn { padding: 8px 14px; font-size: 0.85rem; }
+    .diff-desc { font-size: 0.72rem; min-height: 2em; }
+    .round-input-row { font-size: 0.85rem; }
+  }
+
+  @media (max-width: 400px) {
+    .btn { padding: 12px 16px; font-size: 0.9rem; }
+    .diff-btn { padding: 7px 11px; font-size: 0.8rem; }
+    .live-table { font-size: 0.74rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎯 각도 맞추기 게임</h1>
+
+<!-- ════ Mode Select ════ -->
+<div id="menu-screen" class="screen active">
+  <div class="menu-content">
+    <p style="color:var(--text-dim); margin-bottom:14px; text-align:center;">기준선(→)으로부터 목표 각도를 맞춰보세요!</p>
+
+    <div class="diff-group">
+      <button class="diff-btn selected" onclick="selectDifficulty('easy', this)">🟢 Easy</button>
+      <button class="diff-btn" onclick="selectDifficulty('normal', this)">🟡 Normal</button>
+      <button class="diff-btn" onclick="selectDifficulty('hard', this)">🔴 Difficult</button>
+    </div>
+    <div class="diff-desc" id="diff-desc">보조선: 0°/90°/180°/270° 실선 + 45°/135°/225°/315° 점선</div>
+
+    <button class="mode-btn" onclick="startGame('practice')">
+      <span class="icon">🔄</span>연습 모드
+      <span class="desc">제한 없이 자유롭게 연습합니다. 평균 오차를 추적합니다.</span>
+    </button>
+    <button class="mode-btn" onclick="startGame('challenge')">
+      <span class="icon">🏆</span>도전 모드
+      <span class="desc">정해진 문제를 풀고 등급을 받아보세요!</span>
+    </button>
+    <div class="round-input-row">
+      <label for="round-count">도전 문제 수:</label>
+      <input type="number" id="round-count" min="1" max="10" value="5">
+      <span style="font-size:0.8rem;">(최대 10)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Game Screen ════ -->
+<div id="game-screen" class="screen">
+  <div id="round-display"></div>
+  <div id="target-display"></div>
+  <div class="game-layout">
+    <!-- Left: Canvas + Buttons -->
+    <div class="game-left">
+      <canvas id="cvs"></canvas>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-confirm" onclick="confirmAnswer()">확인</button>
+        <button class="btn btn-gold" id="btn-next" onclick="nextRound()" style="display:none;">다음 문제</button>
+        <button class="btn btn-outline" id="btn-home" onclick="goHome()">메인으로</button>
+      </div>
+      <div id="practice-stats"></div>
+    </div>
+    <!-- Right: Live results table (challenge mode) -->
+    <div class="game-right" id="game-right-panel" style="display:none;">
+      <div class="live-table-wrap">
+        <h3>📊 도전 결과</h3>
+        <table class="live-table" id="live-table">
+          <thead>
+            <tr><th>#</th><th>목표</th><th>내 답</th><th>오차</th></tr>
+          </thead>
+          <tbody id="live-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Summary Screen ════ -->
+<div id="summary-screen" class="screen">
+  <div class="summary-card" id="summary-card"></div>
+  <div class="btn-row" style="margin-top:16px;">
+    <button class="btn btn-gold" onclick="startGame('challenge')">다시 도전</button>
+    <button class="btn btn-outline" onclick="goHome()">메인으로</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  Constants & State
+// ══════════════════════════════════════════
+const DPR = window.devicePixelRatio || 1;
+
+const canvas = document.getElementById('cvs');
+const ctx = canvas.getContext('2d');
+
+// Sizing
+let cSize = Math.min(500, window.innerWidth * 0.9);
+function resizeCanvas() {
+  const vw = window.innerWidth;
+  if (vw <= 700) {
+    // Mobile: use most of screen width, but leave some padding
+    cSize = Math.min(420, vw - 28);
+  } else {
+    // Desktop: leave room for the side table
+    cSize = Math.min(500, vw * 0.5);
+  }
+  canvas.style.width = cSize + 'px';
+  canvas.style.height = cSize + 'px';
+  canvas.width = cSize * DPR;
+  canvas.height = cSize * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  draw();
+}
+
+const CX = () => cSize / 2;
+const CY = () => cSize / 2;
+const LINE_LEN = () => cSize * 0.38;
+const ARC_R = () => cSize * 0.13;
+
+let mode = ''; // 'practice' | 'challenge'
+let difficulty = 'easy'; // 'easy' | 'normal' | 'hard'
+let totalRounds = 5;
+let targetAngle = 0;
+let playerAngle = 0; // degrees, CCW from +X
+let dragging = false;
+let confirmed = false;
+let round = 0;
+let results = []; // { target, answer, error }
+let practiceCount = 0;
+let practiceSum = 0;
+
+// Anim
+let revealProgress = 0;
+let revealRAF = null;
+
+// ══════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════
+function selectDifficulty(diff, btnEl) {
+  difficulty = diff;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+  btnEl.classList.add('selected');
+  const descs = {
+    easy: '보조선: 0°/90°/180°/270° 실선 + 45°/135°/225°/315° 점선',
+    normal: '보조선: 0°/90°/180°/270° 실선만 표시',
+    hard: '보조선 없음 — 0° 기준선만 표시'
+  };
+  document.getElementById('diff-desc').textContent = descs[diff];
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  cancelAnimationFrame(revealRAF);
+  showScreen('menu-screen');
+}
+
+function startGame(m) {
+  mode = m;
+  round = 0;
+  results = [];
+
+  if (mode === 'challenge') {
+    let inputVal = parseInt(document.getElementById('round-count').value, 10);
+    if (isNaN(inputVal) || inputVal < 1) inputVal = 1;
+    if (inputVal > 10) inputVal = 10;
+    document.getElementById('round-count').value = inputVal;
+    totalRounds = inputVal;
+    document.getElementById('game-right-panel').style.display = '';
+  } else {
+    practiceCount = 0;
+    practiceSum = 0;
+    document.getElementById('game-right-panel').style.display = 'none';
+  }
+
+  showScreen('game-screen');
+  resizeCanvas();
+  nextRound();
+}
+
+function nextRound() {
+  round++;
+  targetAngle = Math.floor(Math.random() * 360);
+  playerAngle = 0;
+  confirmed = false;
+  revealProgress = 0;
+  cancelAnimationFrame(revealRAF);
+
+  document.getElementById('btn-confirm').style.display = '';
+  document.getElementById('btn-confirm').disabled = false;
+  document.getElementById('btn-next').style.display = 'none';
+  document.getElementById('practice-stats').textContent = '';
+
+  const diffLabels = { easy: '🟢 Easy', normal: '🟡 Normal', hard: '🔴 Difficult' };
+  if (mode === 'challenge') {
+    document.getElementById('round-display').textContent = `${round} / ${totalRounds}  ·  ${diffLabels[difficulty]}`;
+  } else {
+    document.getElementById('round-display').textContent = `연습 모드  ·  ${diffLabels[difficulty]}`;
+  }
+  document.getElementById('target-display').textContent = `${targetAngle}°를 만들어 보세요!`;
+
+  // Update live table
+  if (mode === 'challenge') {
+    updateLiveTable();
+  }
+
+  draw();
+}
+
+// ══════════════════════════════════════════
+//  Live Results Table
+// ══════════════════════════════════════════
+function updateLiveTable() {
+  const tbody = document.getElementById('live-table-body');
+  let html = '';
+
+  // Filled rows
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const cls = r.error < 5 ? 'error-good' : r.error < 15 ? 'error-ok' : 'error-bad';
+    html += `<tr>
+      <td>${i + 1}</td>
+      <td>${r.target}°</td>
+      <td>${Math.round(r.answer)}°</td>
+      <td class="err-cell ${cls}">${r.error.toFixed(1)}°</td>
+    </tr>`;
+  }
+
+  // Empty placeholder rows for remaining rounds
+  for (let i = results.length; i < totalRounds; i++) {
+    html += `<tr class="empty-row">
+      <td>${i + 1}</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>`;
+  }
+
+  // Average row
+  if (results.length > 0) {
+    const avg = results.reduce((s, r) => s + r.error, 0) / results.length;
+    const cls = avg < 5 ? 'error-good' : avg < 15 ? 'error-ok' : 'error-bad';
+    html += `<tr class="avg-row">
+      <td colspan="3">평균 오차</td>
+      <td class="${cls}">${avg.toFixed(1)}°</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+//  Confirm / Result
+// ══════════════════════════════════════════
+function confirmAnswer() {
+  if (confirmed) return;
+  confirmed = true;
+
+  const err = angleDiff(playerAngle, targetAngle);
+  results.push({ target: targetAngle, answer: Math.round(playerAngle * 10) / 10, error: err });
+
+  // Practice stats
+  if (mode === 'practice') {
+    practiceCount++;
+    practiceSum += err;
+    document.getElementById('practice-stats').textContent =
+      `총 ${practiceCount}문제  ·  평균 오차: ${(practiceSum / practiceCount).toFixed(1)}°`;
+  }
+
+  // Update live table for challenge mode
+  if (mode === 'challenge') {
+    updateLiveTable();
+  }
+
+  document.getElementById('btn-confirm').disabled = true;
+
+  // Reveal animation
+  revealProgress = 0;
+  animateReveal();
+
+  // Show next / summary button
+  if (mode === 'challenge' && round >= totalRounds) {
+    document.getElementById('btn-confirm').style.display = 'none';
+    const nb = document.getElementById('btn-next');
+    nb.style.display = '';
+    nb.textContent = '결과 보기';
+    nb.onclick = showSummary;
+  } else {
+    document.getElementById('btn-confirm').style.display = 'none';
+    document.getElementById('btn-next').style.display = '';
+    document.getElementById('btn-next').textContent = '다음 문제';
+    document.getElementById('btn-next').onclick = nextRound;
+  }
+}
+
+function angleDiff(a, b) {
+  let d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+function animateReveal() {
+  revealProgress += 0.04;
+  if (revealProgress > 1) revealProgress = 1;
+  draw();
+  if (revealProgress < 1) revealRAF = requestAnimationFrame(animateReveal);
+}
+
+// ══════════════════════════════════════════
+//  Summary
+// ══════════════════════════════════════════
+function showSummary() {
+  showScreen('summary-screen');
+  const avg = results.reduce((s, r) => s + r.error, 0) / results.length;
+  let stars, label;
+  if (avg < 3) { stars = '★★★★★'; label = '완벽한 각도 감각!'; }
+  else if (avg < 7) { stars = '★★★★☆'; label = '훌륭해요!'; }
+  else if (avg < 12) { stars = '★★★☆☆'; label = '꽤 괜찮아요!'; }
+  else if (avg < 20) { stars = '★★☆☆☆'; label = '조금 더 연습해봐요!'; }
+  else { stars = '★☆☆☆☆'; label = '연습이 필요해요!'; }
+
+  let rows = results.map((r, i) => {
+    const cls = r.error < 5 ? 'error-good' : r.error < 15 ? 'error-ok' : 'error-bad';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${r.target}°</td>
+      <td>${Math.round(r.answer)}°</td>
+      <td class="err-cell ${cls}">${r.error.toFixed(1)}°</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('summary-card').innerHTML = `
+    <h2>🏆 도전 결과</h2>
+    <div class="stars">${stars}</div>
+    <div class="grade-label">${label}</div>
+    <div class="avg-box">평균 오차 <br><span class="num">${avg.toFixed(1)}°</span></div>
+    <table class="summary-table">
+      <thead><tr><th>#</th><th>목표</th><th>내 답</th><th>오차</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ══════════════════════════════════════════
+//  Drawing
+// ══════════════════════════════════════════
+function draw() {
+  const cx = CX(), cy = CY(), len = LINE_LEN(), arcR = ARC_R();
+  ctx.clearRect(0, 0, cSize, cSize);
+
+  // ── Guide lines based on difficulty ──
+  // Cardinal axes (90°, 180°, 270°) — solid, semi-visible (Easy & Normal)
+  if (difficulty !== 'hard') {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 1.5;
+    [90, 180, 270].forEach(deg => {
+      const rad = degToRad(deg);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(rad) * len * 1.05, cy - Math.sin(rad) * len * 1.05);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  // Diagonal guides (45°, 135°, 225°, 315°) — dashed, subtle (Easy only)
+  if (difficulty === 'easy') {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    [45, 135, 225, 315].forEach(deg => {
+      const rad = degToRad(deg);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(rad) * len * 1.05, cy - Math.sin(rad) * len * 1.05);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ── X-axis reference line (0°) ──
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + len, cy);
+  ctx.stroke();
+  // small "0°" label
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('0°', cx + len + 6, cy + 4);
+
+  // ── Player arc ──
+  if (playerAngle !== 0 || confirmed) {
+    drawArc(cx, cy, arcR, 0, playerAngle, 'rgba(0,229,255,0.25)', 'rgba(0,229,255,0.6)', 2);
+  }
+
+  // ── Target arc & line (revealed after confirm) ──
+  if (confirmed && revealProgress > 0) {
+    const t = easeOut(revealProgress);
+    // target arc
+    drawArc(cx, cy, arcR * 0.75, 0, targetAngle,
+      `rgba(255,215,64,${0.2 * t})`, `rgba(255,215,64,${0.6 * t})`, 2);
+    // target line
+    const tRad = degToRad(targetAngle);
+    const tx = cx + Math.cos(tRad) * len * t;
+    const ty = cy - Math.sin(tRad) * len * t;
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = '#ffd740';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // target label
+    const lx = cx + Math.cos(tRad) * (len + 18);
+    const ly = cy - Math.sin(tRad) * (len + 18);
+    ctx.fillStyle = '#ffd740';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${targetAngle}°`, lx, ly);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // ── Player line with arrow ──
+  const pRad = degToRad(playerAngle);
+  const px = cx + Math.cos(pRad) * len;
+  const py = cy - Math.sin(pRad) * len;
+
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(px, py);
+  ctx.stroke();
+
+  // Arrowhead
+  drawArrow(px, py, pRad);
+
+  // ── Center dot ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#00e5ff';
+  ctx.fill();
+
+  // ── Result overlay on canvas (upper-right) ──
+  if (confirmed && revealProgress >= 1) {
+    const lastResult = results[results.length - 1];
+    if (lastResult) {
+      const err = lastResult.error;
+      const errColor = err < 5 ? '#69f0ae' : err < 15 ? '#ffd740' : '#ff5252';
+
+      // Scale overlay with canvas size
+      const scale = cSize / 500;
+      const padX = Math.round(12 * scale);
+      const padY = Math.round(12 * scale);
+      const boxW = Math.round(150 * scale);
+      const boxH = Math.round(52 * scale);
+      const bx = cSize - padX - boxW;
+      const by = padY;
+      const fontSize1 = Math.max(11, Math.round(13 * scale));
+      const fontSize2 = Math.max(12, Math.round(15 * scale));
+
+      // Background box
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = '#1a1e2e';
+      ctx.beginPath();
+      ctx.roundRect(bx, by, boxW, boxH, 8 * scale);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Border
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, boxW, boxH, 8 * scale);
+      ctx.stroke();
+
+      // "내 답" text
+      ctx.fillStyle = '#e8eaf6';
+      ctx.font = `${fontSize1}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`내 답: ${Math.round(lastResult.answer)}°`, bx + 10 * scale, by + 8 * scale);
+
+      // "오차" text
+      ctx.fillStyle = errColor;
+      ctx.font = `bold ${fontSize2}px sans-serif`;
+      ctx.fillText(`오차: ${err.toFixed(1)}°`, bx + 10 * scale, by + 28 * scale);
+
+      ctx.restore();
+    }
+  }
+}
+
+function drawArc(cx, cy, r, fromDeg, toDeg, fillColor, strokeColor, lw) {
+  const fromRad = -degToRad(fromDeg);
+  const toRad = -degToRad(toDeg);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, fromRad, toRad, toDeg > 0);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, fromRad, toRad, toDeg > 0);
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
+function drawArrow(x, y, angleRad) {
+  const sz = 10;
+  // angleRad points from center to tip, arrow opens backward
+  const a1 = Math.PI - angleRad + 0.4;
+  const a2 = Math.PI - angleRad - 0.4;
+  ctx.fillStyle = '#00e5ff';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + Math.cos(a1) * sz, y + Math.sin(a1) * sz);
+  ctx.lineTo(x + Math.cos(a2) * sz, y + Math.sin(a2) * sz);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function degToRad(d) { return d * Math.PI / 180; }
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+// ══════════════════════════════════════════
+//  Input Handling (mouse + touch)
+// ══════════════════════════════════════════
+function getAngleFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  let clientX, clientY;
+  if (e.touches) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  const x = clientX - rect.left - cSize / 2;
+  const y = -(clientY - rect.top - cSize / 2); // flip Y for math coords
+  let deg = Math.atan2(y, x) * 180 / Math.PI;
+  if (deg < 0) deg += 360;
+  return deg;
+}
+
+function onPointerDown(e) {
+  if (confirmed) return;
+  e.preventDefault();
+  dragging = true;
+  playerAngle = getAngleFromEvent(e);
+  draw();
+}
+function onPointerMove(e) {
+  if (!dragging || confirmed) return;
+  e.preventDefault();
+  playerAngle = getAngleFromEvent(e);
+  draw();
+}
+function onPointerUp(e) {
+  dragging = false;
+}
+
+canvas.addEventListener('mousedown', onPointerDown);
+canvas.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+
+canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+window.addEventListener('touchend', onPointerUp);
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('game-screen').classList.contains('active')) {
+    resizeCanvas();
+  }
+});
+
+// Clamp round-count input
+document.getElementById('round-count').addEventListener('change', function() {
+  let v = parseInt(this.value, 10);
+  if (isNaN(v) || v < 1) v = 1;
+  if (v > 10) v = 10;
+  this.value = v;
+});
+
+// Initial draw (nothing visible yet until game starts)
+resizeCanvas();
+</script>
+</body>
+</html>
